@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.relations import SlugRelatedField
 from rest_framework.validators import UniqueTogetherValidator
 
-from posts.models import Comment, Post, Group, Follow
+from posts.models import Comment, Follow, Group, Post, User
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -13,10 +13,15 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class FollowSerializer(serializers.ModelSerializer):
-    user = SlugRelatedField(slug_field='username', read_only=True,
-                            default=serializers.CurrentUserDefault())
-    following = SlugRelatedField(slug_field='username', read_only=True,
-                                 default=serializers.CurrentUserDefault())
+    user = SlugRelatedField(
+        queryset=User.objects.all(),
+        slug_field='username',
+        default=serializers.CurrentUserDefault()
+    )
+    following = SlugRelatedField(
+        queryset=User.objects.all(),
+        slug_field='username'
+    )
 
     class Meta:
         model = Follow
@@ -28,14 +33,19 @@ class FollowSerializer(serializers.ModelSerializer):
             )
         ]
 
-#         Проверьте, что при POST запросе на `/api/v1/follow/` с неправильными данными возвращается статус 400
-# E       assert 404 == 400
-# E         +404
-# E         -400
+    def validate(self, attr):
+        if attr['user'] == attr['following']:
+            raise serializers.ValidationError(
+                'Подписаться на самого себя нельзя!'
+            )
+        return attr
 
 
 class PostSerializer(serializers.ModelSerializer):
-    author = SlugRelatedField(slug_field='username', read_only=True)
+    author = SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
 
     class Meta:
         fields = '__all__'
@@ -43,8 +53,9 @@ class PostSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(
-        read_only=True, slug_field='username'
+    author = SlugRelatedField(
+        slug_field='username',
+        read_only=True
     )
 
     class Meta:
